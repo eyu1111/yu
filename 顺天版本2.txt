@@ -1,0 +1,568 @@
+local OrionLib
+local success, err = pcall(function()
+    OrionLib = loadstring(game:HttpGet(('https://raw.githubusercontent.com/shlexware/Orion/main/source')))()
+end)
+if not success then
+    error("无法加载OrionLib: " .. err)
+    return
+end
+
+
+local Whitelist = {
+    "Player1",
+    "Player2",
+    "yukjm2",
+    "yukjm22"
+}
+
+
+local player = game.Players.LocalPlayer
+local username = player.Name
+
+
+local function isWhitelisted()
+    for _, v in ipairs(Whitelist) do
+        if v == username then
+            return true
+        end
+    end
+    return false
+end
+
+
+local function checkWhitelist(maxRetries, retryDelay)
+    for attempt = 1, maxRetries do
+        if isWhitelisted() then
+            return true
+        else
+            wait(retryDelay)
+        end
+    end
+    return false
+end
+
+
+if not checkWhitelist(3, 2) then
+    player:Kick("你不在白名单中，无法使用此脚本。\n如有疑问，请联系3291165933。")
+    return
+end
+
+
+OrionLib:MakeNotification({
+    Name = "欢迎使用",
+    Content = "你已成功添加鳄小想白名单，欢迎使用。\n检测你的设备为OPPO A5\n\n请注意：不要滥用！",
+    Image = "rbxassetid://4483345998",
+    Time = 15
+})
+
+
+local Window = OrionLib:MakeWindow({Name = "鳄小想", HidePremium = false, SaveConfig = true, ConfigFolder = "ATMControl"})
+
+
+local AnnouncementTab = Window:MakeTab({Name = "公告列表", Icon = "rbxassetid://4483345998", PremiumOnly = false})
+
+
+local Announcements = {
+    "欢迎使用鳄小想脚本，请合理使用功能！",
+    "新版本更新：添加了远程购物功能。",
+    "即将加入更多实用功能，敬请期待！",
+    "使用时请注意白名单检查，不要尝试非法操作。",
+    "反馈和建议请联系开发者。",
+    "当前服务器可能会有延迟，请耐心等待。",
+}
+
+
+for _, announcement in ipairs(Announcements) do
+    AnnouncementTab:AddLabel(announcement)
+end
+
+
+local MainTab = Window:MakeTab({Name = "鳄小想", Icon = "rbxassetid://4483345998", PremiumOnly = false})
+
+local function createButton(tab, name, callback)
+    tab:AddButton({Name = name, Callback = callback})
+end
+
+
+local AmountInput
+MainTab:AddTextbox({
+    Name = "输入金额",
+    Default = "",
+    TextDisappear = false,
+    Callback = function(value)
+        AmountInput = tonumber(value)
+    end
+})
+
+
+local function handleTransaction(action)
+    if AmountInput and AmountInput > 0 then
+        game:GetService("ReplicatedStorage")[action]:FireServer(AmountInput)
+        print("已" .. (action == "ATMWithdraw" and "提款" or "存款") .. ": " .. AmountInput)
+    else
+        print("请输入有效的金额")
+    end
+end
+
+createButton(MainTab, "提款", function() handleTransaction("ATMWithdraw") end)
+createButton(MainTab, "存款", function() handleTransaction("ATMDeposit") end)
+
+
+local noclipEnabled = false
+
+createButton(MainTab, "穿墙 开/关", function()
+    noclipEnabled = not noclipEnabled
+    local connection
+    if noclipEnabled then
+        connection = game:GetService("RunService").Stepped:Connect(function()
+            for _, v in pairs(player.Character:GetDescendants()) do
+                if v:IsA("BasePart") and v.CanCollide then
+                    v.CanCollide = false
+                end
+            end
+        end)
+        print("穿墙 已启用")
+    else
+        connection:Disconnect()
+        for _, v in pairs(player.Character:GetDescendants()) do
+            if v:IsA("BasePart") then
+                v.CanCollide = true
+            end
+        end
+        print("穿墙 已禁用")
+    end
+end)
+
+
+MainTab:AddTextbox({
+    Name = "设置速度",
+    Default = "16",
+    TextDisappear = false,
+    Callback = function(value)
+        local speed = tonumber(value)
+        if speed and player.Character and player.Character:FindFirstChild("Humanoid") then
+            player.Character.Humanoid.WalkSpeed = speed
+            print("玩家速度已设置为: " .. speed)
+        else
+            print("请输入有效的速度值")
+        end
+    end
+})
+
+
+local autoMoveEnabled = false
+local moveCoroutine
+
+local moveStatusLabel = MainTab:AddLabel("自动移动状态: 暂停")
+
+local function autoMove()
+    local character = player.Character or player.CharacterAdded:Wait()
+    local pickupPosition = Vector3.new(5.562553405761719, 267.2689208984375, -1486.2239990234375) 
+    local deliveryPosition = Vector3.new(1722.538330078125, 45.60755157470703, -258.8332214355469) 
+
+    while autoMoveEnabled do
+        
+        character:SetPrimaryPartCFrame(CFrame.new(pickupPosition))
+        wait(3) 
+        
+        character:SetPrimaryPartCFrame(CFrame.new(deliveryPosition))
+        wait(10) 
+    end
+end
+
+createButton(MainTab, "自动传送 开/关", function()
+    autoMoveEnabled = not autoMoveEnabled
+    moveStatusLabel:Set("自动移动状态: " .. (autoMoveEnabled and "启动" or "暂停"))
+    if autoMoveEnabled then
+        moveCoroutine = coroutine.create(autoMove)
+        coroutine.resume(moveCoroutine)
+        print("自动传送已启动")
+    else
+        print("自动传送已暂停")
+    end
+end)
+
+
+createButton(MainTab, "透视玩家", function()
+    for _, targetPlayer in pairs(game.Players:GetPlayers()) do
+        if targetPlayer ~= player then
+            local character = targetPlayer.Character
+            if character then
+                local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+                local humanoid = character:FindFirstChildOfClass("Humanoid")
+                if humanoidRootPart and humanoid then
+                    local billboardGui = Instance.new("BillboardGui")
+                    local textLabel = Instance.new("TextLabel")
+                    
+                    billboardGui.Name = "PlayerESP"
+                    billboardGui.Adornee = humanoidRootPart
+                    billboardGui.Size = UDim2.new(0, 200, 0, 50)
+                    billboardGui.StudsOffset = Vector3.new(0, 2, 0)
+                    billboardGui.AlwaysOnTop = true
+                    
+                    textLabel.Parent = billboardGui
+                    textLabel.Size = UDim2.new(1, 0, 1, 0)
+                    textLabel.BackgroundTransparency = 1
+                    textLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+                    textLabel.TextStrokeTransparency = 0.5
+                    textLabel.TextScaled = true
+                    
+                    billboardGui.Parent = humanoidRootPart
+                    
+                    game:GetService("RunService").Stepped:Connect(function()
+                        if character and humanoidRootPart and humanoid then
+                            local distance = (player.Character.HumanoidRootPart.Position - humanoidRootPart.Position).magnitude
+                            textLabel.Text = string.format("%s\n距离: %.1f\n生命值: %.0f", targetPlayer.Name, distance, humanoid.Health)
+                        else
+                            billboardGui:Destroy()
+                        end
+                    end)
+                end
+            end
+        end
+    end
+    print("透视功能已启用")
+end)
+
+
+local TeleportTab = Window:MakeTab({Name = "传送地点", Icon = "rbxassetid://4483345998", PremiumOnly = false})
+
+local TeleportLocations = {
+    ["人民影剧院"] = Vector3.new(6170.08, -110.80, -398.30),
+    ["拳击馆"] = Vector3.new(958.74, -96.90, -680.78),
+    ["顺天出租车有限公司大门"] = Vector3.new(985.56, 45.18, -41.06),
+    ["大酒店"] = Vector3.new(570.13, 51.82, -1014.36),
+    ["公寓"] = Vector3.new(1506.19, 45.70, -886.83),
+    ["下水道"] = Vector3.new(2407.21, -75.69, -1543.95),
+    ["月跑便利店"] = Vector3.new(366.2451171875, 45.988121032714844, -818.7373657226562),
+    ["老奶奶五金店"] = Vector3.new(1206.89892578125, 45.92694854736328, -729.1337280273438)
+}
+
+local selectedLocation
+
+TeleportTab:AddDropdown({
+    Name = "选择传送地点",
+    Default = "请选择一个地点",
+    Options = {"人民影剧院", "拳击馆", "顺天出租车有限公司大门", "大酒店", "公寓", "下水道", "月跑便利店", "老奶奶五金店"},
+    Callback = function(option)
+        selectedLocation = TeleportLocations[option]
+        print("已选择传送地点: " .. option)
+    end
+})
+
+createButton(TeleportTab, "传送", function()
+    if selectedLocation then
+        player.Character:SetPrimaryPartCFrame(CFrame.new(selectedLocation))
+        print("玩家已传送到: " .. tostring(selectedLocation))
+    else
+        print("请先选择一个传送地点")
+    end
+end)
+
+
+createButton(MainTab, "隐蔽模式", function()
+    
+    local character = player.Character
+
+    if character then
+        
+        local head = character:FindFirstChild("Head")
+
+        
+        if head then
+            
+            for _, child in ipairs(head:GetChildren()) do
+                if child:IsA("BillboardGui") or child.Name == "NameTag" then
+                    child:Destroy()
+                end
+            end
+            
+            
+            local hiddenTag = Instance.new("BillboardGui", head)
+            hiddenTag.Size = UDim2.new(1, 0, 1, 0)
+            hiddenTag.AlwaysOnTop = true
+            hiddenTag.Enabled = false 
+        end
+
+        
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid.DisplayName = "玩家" 
+        end
+
+        
+        player.UserId = 0
+        player:SetAttribute("UserId", "隐藏")
+        player:SetAttribute("UserIdDisplay", "隐藏")
+
+        print("隐蔽模式已启用：玩家的显示名称已更改，服务器ID已隐藏。")
+    else
+        print("无法找到玩家的角色。")
+    end
+end)
+
+
+local ShopTab = Window:MakeTab({Name = "远程购物", Icon = "rbxassetid://4483345998", PremiumOnly = false})
+
+
+createButton(ShopTab, "购买绷带", function()
+    local args = {
+        [1] = "shopAction",
+        [2] = game:GetService("ReplicatedStorage").shop.shopSetup:FindFirstChild("\232\141\175\229\186\151").items:FindFirstChild("\231\187\183\229\184\166"),
+        [3] = 30,
+        [4] = "wallet"
+    }
+    game:GetService("ReplicatedStorage").shop.scripted.Functions.shopFunction:InvokeServer(unpack(args))
+    print("已购买: 绷带")
+end)
+
+
+createButton(ShopTab, "购买医疗包", function()
+    local args = {
+        [1] = "shopAction",
+        [2] = game:GetService("ReplicatedStorage").shop.shopSetup:FindFirstChild("\232\141\175\229\186\151").items:FindFirstChild("\229\140\187\231\150\151\229\140\133"),
+        [3] = 75,
+        [4] = "wallet"
+    }
+    game:GetService("ReplicatedStorage").shop.scripted.Functions.shopFunction:InvokeServer(unpack(args))
+    print("已购买: 医疗包")
+end)
+
+
+createButton(ShopTab, "购买止痛药", function()
+    local args = {
+        [1] = "shopAction",
+        [2] = game:GetService("ReplicatedStorage").shop.shopSetup:FindFirstChild("\232\141\175\229\186\151").items:FindFirstChild("\230\173\162\231\151\155\232\141\175"),
+        [3] = 25,
+        [4] = "wallet"
+    }
+    game:GetService("ReplicatedStorage").shop.scripted.Functions.shopFunction:InvokeServer(unpack(args))
+    print("已购买: 止痛药")
+end)
+
+
+createButton(ShopTab, "购买创口贴", function()
+    local args = {
+        [1] = "shopAction",
+        [2] = game:GetService("ReplicatedStorage").shop.shopSetup:FindFirstChild("\232\141\175\229\186\151").items:FindFirstChild("\229\136\155\229\143\163\232\180\180"),
+        [3] = 20,
+        [4] = "wallet"
+    }
+    game:GetService("ReplicatedStorage").shop.scripted.Functions.shopFunction:InvokeServer(unpack(args))
+    print("已购买: 创口贴")
+end)
+
+
+local ExecutionTab = Window:MakeTab({Name = "秒执行", Icon = "rbxassetid://4483345998", PremiumOnly = false})
+
+
+local autoBandageEnabled = false
+local autoMedkitEnabled = false
+local autoPainkillerEnabled = false
+local autoPlasterEnabled = false
+
+
+local function fastUseItem(itemName, isEnabled)
+    local player = game:GetService("Players").LocalPlayer
+    local character = player.Character
+
+    local item = character:FindFirstChild(itemName)
+    if item and item:FindFirstChild("wear") then
+        while isEnabled() do
+            local args = {
+                [1] = character
+            }
+            item.wear:FireServer(unpack(args))
+            wait(0.1) 
+        end
+        print("自动使用" .. itemName .. "已停止.")
+    else
+        warn("未找到" .. itemName .. "或wear事件.")
+    end
+end
+
+
+ExecutionTab:AddToggle({
+    Name = "自动使用绷带",
+    Default = false,
+    Callback = function(value)
+        autoBandageEnabled = value
+        if autoBandageEnabled then
+            coroutine.wrap(function() fastUseItem("\231\187\183\229\184\166", function() return autoBandageEnabled end) end)()
+        end
+    end
+})
+
+
+ExecutionTab:AddToggle({
+    Name = "自动使用医疗包",
+    Default = false,
+    Callback = function(value)
+        autoMedkitEnabled = value
+        if autoMedkitEnabled then
+            coroutine.wrap(function() fastUseItem("\229\140\187\231\150\151\229\140\133", function() return autoMedkitEnabled end) end)()
+        end
+    end
+})
+
+
+ExecutionTab:AddToggle({
+    Name = "自动使用止痛药",
+    Default = false,
+    Callback = function(value)
+        autoPainkillerEnabled = value
+        if autoPainkillerEnabled then
+            coroutine.wrap(function() fastUseItem("\230\173\162\231\151\155\232\141\175", function() return autoPainkillerEnabled end) end)()
+        end
+    end
+})
+
+
+ExecutionTab:AddToggle({
+    Name = "自动使用创口贴",
+    Default = false,
+    Callback = function(value)
+        autoPlasterEnabled = value
+        if autoPlasterEnabled then
+            coroutine.wrap(function() fastUseItem("\229\136\155\229\143\163\232\180\180", function() return autoPlasterEnabled end) end)()
+        end
+    end
+})
+
+
+local ToolsTab = Window:MakeTab({Name = "工具栏购物", Icon = "rbxassetid://4483345998", PremiumOnly = false})
+
+
+createButton(ToolsTab, "购买锤头", function()
+    local args = {
+        [1] = "shopAction",
+        [2] = game:GetService("ReplicatedStorage").shop.shopSetup:FindFirstChild("\228\186\148\233\135\145\229\186\151").items:FindFirstChild("\233\148\164\229\164\180"),
+        [3] = 70,
+        [4] = "wallet"
+    }
+    game:GetService("ReplicatedStorage").shop.scripted.Functions.shopFunction:InvokeServer(unpack(args))
+    print("已购买: 锤头")
+end)
+
+
+createButton(ToolsTab, "购买斧头", function()
+    local args = {
+        [1] = "shopAction",
+        [2] = game:GetService("ReplicatedStorage").shop.shopSetup:FindFirstChild("\228\186\148\233\135\145\229\186\151").items:FindFirstChild("\230\150\167\229\164\180"),
+        [3] = 100,
+        [4] = "wallet"
+    }
+    game:GetService("ReplicatedStorage").shop.scripted.Functions.shopFunction:InvokeServer(unpack(args))
+    print("已购买: 斧头")
+end)
+
+
+createButton(ToolsTab, "购买撬棍", function()
+    local args = {
+        [1] = "shopAction",
+        [2] = game:GetService("ReplicatedStorage").shop.shopSetup:FindFirstChild("\228\186\148\233\135\145\229\186\151").items:FindFirstChild("\230\146\172\230\163\141"),
+        [3] = 80,
+        [4] = "wallet"
+    }
+    game:GetService("ReplicatedStorage").shop.scripted.Functions.shopFunction:InvokeServer(unpack(args))
+    print("已购买: 撬棍")
+end)
+
+
+createButton(ToolsTab, "购买扳手", function()
+    local args = {
+        [1] = "shopAction",
+        [2] = game:GetService("ReplicatedStorage").shop.shopSetup:FindFirstChild("\228\186\148\233\135\145\229\186\151").items:FindFirstChild("\230\137\179\230\137\139"),
+        [3] = 50,
+        [4] = "wallet"
+    }
+    game:GetService("ReplicatedStorage").shop.scripted.Functions.shopFunction:InvokeServer(unpack(args))
+    print("已购买: 扳手")
+end)
+
+
+createButton(ToolsTab, "购买圆头扳手", function()
+    local args = {
+        [1] = "shopAction",
+        [2] = game:GetService("ReplicatedStorage").shop.shopSetup:FindFirstChild("\228\186\148\233\135\145\229\186\151").items:FindFirstChild("\229\156\134\229\164\180\230\137\179\230\137\139"),
+        [3] = 50,
+        [4] = "wallet"
+    }
+    game:GetService("ReplicatedStorage").shop.scripted.Functions.shopFunction:InvokeServer(unpack(args))
+    print("已购买: 圆头扳手")
+end)
+
+
+createButton(ToolsTab, "购买工程锤", function()
+    local args = {
+        [1] = "shopAction",
+        [2] = game:GetService("ReplicatedStorage").shop.shopSetup:FindFirstChild("\228\186\148\233\135\145\229\186\151").items:FindFirstChild("\229\183\165\231\168\139\233\148\164"),
+        [3] = 125,
+        [4] = "wallet"
+    }
+    game:GetService("ReplicatedStorage").shop.scripted.Functions.shopFunction:InvokeServer(unpack(args))
+    print("已购买: 工程锤")
+end)
+
+
+createButton(ToolsTab, "购买管道", function()
+    local args = {
+        [1] = "shopAction",
+        [2] = game:GetService("ReplicatedStorage").shop.shopSetup:FindFirstChild("\228\186\148\233\135\145\229\186\151").items:FindFirstChild("\231\174\161\233\129\147"),
+        [3] = 55,
+        [4] = "wallet"
+    }
+    game:GetService("ReplicatedStorage").shop.scripted.Functions.shopFunction:InvokeServer(unpack(args))
+    print("已购买: 管道")
+end)
+
+
+createButton(ToolsTab, "购买工程头盔", function()
+    local args = {
+        [1] = "shopAction",
+        [2] = game:GetService("ReplicatedStorage").shop.shopSetup:FindFirstChild("\228\186\148\233\135\145\229\186\151").items:FindFirstChild("\229\183\165\231\168\139\229\164\180\231\155\148"),
+        [3] = 255,
+        [4] = "wallet"
+    }
+    game:GetService("ReplicatedStorage").shop.scripted.Functions.shopFunction:InvokeServer(unpack(args))
+    print("已购买: 工程头盔")
+end)
+
+
+local AdminMonitorTab = Window:MakeTab({Name = "监测管理员", Icon = "rbxassetid://4483345998", PremiumOnly = false})
+
+local adminList = {"Admin1", "Admin2"} 
+
+
+local function monitorAdmins()
+    while true do
+        for _, player in pairs(game.Players:GetPlayers()) do
+            if table.find(adminList, player.Name) then
+                OrionLib:MakeNotification({
+                    Name = "管理员检测到",
+                    Content = "管理员 " .. player.Name .. " 正在游戏中。",
+                    Image = "rbxassetid://4483345998",
+                    Time = 10
+                })
+            end
+        end
+        wait(5) 
+    end
+end
+
+coroutine.wrap(monitorAdmins)() 
+
+
+AdminMonitorTab:AddLabel("管理员监测已启用。")
+
+
+local AboutTab = Window:MakeTab({Name = "关于", Icon = "rbxassetid://4483345998", PremiumOnly = false})
+
+
+AboutTab:AddLabel("您的注入器: " .. (identifyexecutor and identifyexecutor() or "未知"))
+AboutTab:AddLabel("您的用户名: " .. game.Players.LocalPlayer.Name)
+AboutTab:AddLabel("您的显示名称: " .. game.Players.LocalPlayer.DisplayName)
+AboutTab:AddLabel("您当前服务器的ID: " .. tostring(game.JobId))
+AboutTab:AddLabel("您的用户ID: " .. tostring(game.Players.LocalPlayer.UserId))
+AboutTab:AddLabel("您当前服务器的名称: " .. game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name)
+AboutTab:AddLabel("获取客户端ID: " .. game:GetService("RbxAnalyticsService"):GetClientId())
