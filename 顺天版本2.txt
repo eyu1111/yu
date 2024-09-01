@@ -10,7 +10,7 @@ end
 
 local Whitelist = {
     "Player1",
-    "Player2",
+    "r4z3z84ceen5c0i23bab",
     "yukjm2",
     "yukjm22"
 }
